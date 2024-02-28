@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 # Cmd to run server: poetry run flask --app todo run -p 6400 --debug 
 #Cmd to inspect database: sqlite3 instance/db.sqlite
 
-def create_app():
+def create_app(config_overrides=None):
     app = Flask(__name__)
 
     app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///db.sqlite"
