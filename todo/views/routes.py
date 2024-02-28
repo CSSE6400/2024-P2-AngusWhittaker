@@ -63,6 +63,11 @@ def update_todo(todo_id):
     if todo is None:
         return jsonify({'error': 'Todo not found'}), 404
 
+    request_fields = set(request.data.keys())
+    valid_fields = {'title', 'description', 'completed', 'deadline_at'}
+    if (request_fields - valid_fields):
+        return jsonify({'error': 'Inappropriate fields'}), 400
+
     todo.title = request.json.get('title', todo.title)
     todo.description = request.json.get('description', todo.description)
     todo.completed = request.json.get('completed', todo.completed)
