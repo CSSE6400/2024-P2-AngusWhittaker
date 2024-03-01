@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from todo.models import db
 from todo.models.todo import Todo
-from datetime import datetime
+from datetime import datetime, timedelta
  
 api = Blueprint('api', __name__, url_prefix='/api/v1') 
 
@@ -24,10 +24,24 @@ def health():
 @api.route('/todos', methods=['GET'])
 def get_todos():
     """Return the list of todo items"""
-    todos = Todo.query.all()
-    result = []
-    for todo in todos:
-        result.append(todo.to_dict())
+    completed = request.args.get('completed')
+    window = request.args.get('window')
+
+    if completed:
+        todos = Todo.query.filter_by(completed=True).all()
+    else:
+        todos = Todo.query.all()
+
+    if window:
+        time = int(window)
+        result = []
+        for todo in todos:
+            if (todo.deadline_at - datetime.utcnow()) <= timedelta(days = time):
+                result.append(todo.to_dict())
+    else:
+        result = []
+        for todo in todos:
+            result.append(todo.to_dict())
     return jsonify(result)
 
 @api.route('/todos/<int:todo_id>', methods=['GET'])
@@ -41,6 +55,17 @@ def get_todo(todo_id):
 @api.route('/todos', methods=['POST']) 
 def create_todo(): 
     """Create a new todo item and return the created item"""
+
+    valid_keys = {'id', 'title', 'description', 'completed', 'deadline_at', 'created_at', 'updated_at'}
+    required_keys = {'title', 'description'}
+    keys_present = request.json.keys()
+
+    if (keys_present - valid_keys):
+        return jsonify({'error': 'Invalid fields'}), 400
+
+    if (required_keys - keys_present):
+        return jsonify({'error': 'Invalid fields'}), 400
+
     todo = Todo( 
       title=request.json.get('title'), 
       description=request.json.get('description'), 
@@ -63,10 +88,11 @@ def update_todo(todo_id):
     if todo is None:
         return jsonify({'error': 'Todo not found'}), 404
 
-    request_fields = set(request.data.keys())
-    valid_fields = {'title', 'description', 'completed', 'deadline_at'}
-    if (request_fields - valid_fields):
-        return jsonify({'error': 'Inappropriate fields'}), 400
+    valid_keys = {'title', 'description', 'completed', 'deadline_at'}
+    keys_present = set(request.json.keys())
+
+    if (keys_present - valid_keys):
+        return jsonify({'error': 'Invalid field'}), 400
 
     todo.title = request.json.get('title', todo.title)
     todo.description = request.json.get('description', todo.description)
@@ -74,7 +100,7 @@ def update_todo(todo_id):
     todo.deadline_at = request.json.get('deadline_at', todo.deadline_at)
     db.session.commit()
 
-    return jsonify(todo.to_dict())
+    return jsonify(todo.to_dict()), 200
 
 @api.route('/todos/<int:todo_id>', methods=['DELETE'])
 def delete_todo(todo_id):
